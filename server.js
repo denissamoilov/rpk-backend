@@ -1,11 +1,10 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const cors = require("cors");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
-const mongoSanitize = require("express-mongo-sanitize");
+const sequelize = require("./config/database");
 require("dotenv").config();
 
 const app = express();
@@ -63,7 +62,6 @@ const corsOptions = {
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json({ limit: "10kb" })); // Limit body size
-app.use(mongoSanitize()); // Prevent NoSQL injection
 
 // Swagger UI
 app.use(
@@ -91,11 +89,20 @@ app.use((err, req, res, next) => {
   });
 });
 
-// MongoDB Connection
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.error("Error connecting to MongoDB:", err));
+// Database Connection and Model Synchronization
+async function initializeDatabase() {
+  try {
+    await sequelize.authenticate();
+    console.log("PostgreSQL connection has been established successfully.");
+
+    // Sync all models
+    await sequelize.sync({ alter: true });
+    console.log("Database models synchronized");
+  } catch (error) {
+    console.error("Unable to connect to the database:", error);
+    process.exit(1);
+  }
+}
 
 // Routes
 app.get("/", (req, res) => res.send("Backend is working!"));
@@ -103,10 +110,12 @@ app.get("/", (req, res) => res.send("Backend is working!"));
 const userRoutes = require("./routes/userRoutes");
 app.use("/api", userRoutes);
 
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-  console.log(
-    `API Documentation available at http://localhost:${PORT}/api-docs`
-  );
+// Start the server and initialize database
+initializeDatabase().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(
+      `API Documentation available at http://localhost:${PORT}/api-docs`
+    );
+  });
 });
