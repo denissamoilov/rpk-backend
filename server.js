@@ -44,7 +44,7 @@ const corsOptions = {
   origin:
     process.env.NODE_ENV === "production"
       ? [
-          "https://your-production-frontend.com",
+          "https://frontend-uwih.onrender.com",
           "https://rpk-backend.onrender.com",
         ]
       : [
