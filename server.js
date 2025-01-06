@@ -45,7 +45,7 @@ const corsOptions = {
     process.env.NODE_ENV === "production"
       ? [
           "https://your-production-frontend.com",
-          "https://api.your-production-frontend.com",
+          "https://rpk-backend.onrender.com",
         ]
       : [
           "http://localhost:5005",
@@ -59,63 +59,44 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 
-// Middleware
+// Apply CORS
 app.use(cors(corsOptions));
-app.use(express.json({ limit: "10kb" })); // Limit body size
 
-// Swagger UI
-app.use(
-  "/api-docs",
-  swaggerUi.serve,
-  swaggerUi.setup(swaggerSpec, {
-    explorer: true,
-    swaggerOptions: {
-      persistAuthorization: true,
-      tryItOutEnabled: true,
-      displayRequestDuration: true,
-    },
-  })
-);
+// Body parser middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// API Routes
+const userRoutes = require("./routes/userRoutes");
+app.use("/api", userRoutes);
+
+// Swagger documentation
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({
-    status: "error",
-    message:
-      process.env.NODE_ENV === "production"
-        ? "Internal server error"
-        : err.message,
-  });
+  res.status(500).json({ error: "Something broke!" });
 });
 
-// Database Connection and Model Synchronization
-async function initializeDatabase() {
+// Start server and sync database
+const startServer = async () => {
   try {
-    await sequelize.authenticate();
-    console.log("PostgreSQL connection has been established successfully.");
+    // Sync database
+    await sequelize.sync();
+    console.log("Database synced successfully");
 
-    // Sync all models
-    await sequelize.sync({ alter: true });
-    console.log("Database models synchronized");
+    // Start server
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+      console.log(
+        `Swagger docs available at http://localhost:${PORT}/api-docs`
+      );
+    });
   } catch (error) {
-    console.error("Unable to connect to the database:", error);
+    console.error("Unable to start server:", error);
     process.exit(1);
   }
-}
+};
 
-// Routes
-app.get("/", (req, res) => res.send("Backend is working!"));
-
-const userRoutes = require("./routes/userRoutes");
-app.use("/api", userRoutes);
-
-// Start the server and initialize database
-initializeDatabase().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-    console.log(
-      `API Documentation available at http://localhost:${PORT}/api-docs`
-    );
-  });
-});
+startServer();
