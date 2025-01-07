@@ -41,99 +41,7 @@ const generateTokens = async (user) => {
 
 /**
  * @swagger
- * /register:
- *   post:
- *     summary: Register a new user
- *     tags: [Users]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *               - password
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *                 description: User's email address
- *               password:
- *                 type: string
- *                 format: password
- *                 description: |
- *                   Password must meet the following requirements:
- *                   - At least 8 characters long
- *                   - At least one uppercase letter
- *                   - At least one lowercase letter
- *                   - At least one number
- *                   - At least one special character (!@#$%^&*(),.?":{}|<>)
- *     responses:
- *       201:
- *         description: User successfully registered
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: User registered successfully
- *                 user:
- *                   type: object
- *                   properties:
- *                     email:
- *                       type: string
- *                     _id:
- *                       type: string
- *       400:
- *         description: Validation error or email already exists
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: Password must be at least 8 characters long, contain uppercase, lowercase, number and special character
- *       500:
- *         description: Server error
- */
-router.post("/register", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    // Check if user already exists
-    const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({ error: "Email already registered" });
-    }
-
-    // Create new user
-    const user = await User.create({
-      email,
-      password,
-    });
-
-    res.status(201).json({
-      message: "User registered successfully",
-      user,
-    });
-  } catch (error) {
-    if (error.name === "ValidationError") {
-      return res.status(400).json({
-        error: "Validation error",
-        details: Object.values(error.errors).map((err) => err.message),
-      });
-    }
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-/**
- * @swagger
- * /verify-email:
+ * /signup:
  *   post:
  *     summary: Request email verification
  *     tags: [Users]
@@ -146,11 +54,20 @@ router.post("/register", async (req, res) => {
  *             required:
  *               - email
  *               - password
+ *               - name
+ *               - surname
+ *               - personalIdCode
  *             properties:
  *               email:
  *                 type: string
  *                 format: email
  *               password:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               surname:
+ *                 type: string
+ *               personalIdCode:
  *                 type: string
  *     responses:
  *       200:
@@ -160,16 +77,19 @@ router.post("/register", async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.post("/verify-email", async (req, res) => {
+router.post("/signup", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, name, surname, personalIdCode } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ where: { email } });
 
     if (existingUser) {
       if (existingUser.isVerified) {
-        return res.status(400).json({ message: "Email is already verified" });
+        return res.status(400).json({
+          success: false,
+          message: "Email is already verified",
+        });
       }
 
       // Create new verification token
@@ -181,7 +101,7 @@ router.post("/verify-email", async (req, res) => {
       await existingUser.update({ verificationToken });
 
       // Generate verification URL
-      const verificationUrl = `${process.env.FRONTEND_URL}/verify?token=${verificationToken}`;
+      const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
 
       // Send verification email using Resend
       const emailResponse = await resend.emails.send({
@@ -199,20 +119,31 @@ router.post("/verify-email", async (req, res) => {
       console.log("Resend API Response:", emailResponse);
 
       return res.status(200).json({
+        success: true,
         message: "Verification email sent successfully",
         emailId: emailResponse.id,
+        user: {
+          email: existingUser.email,
+          name: existingUser.name,
+          surname: existingUser.surname,
+          personalIdCode: existingUser.personalIdCode,
+          isVerified: existingUser.isVerified,
+        },
       });
     }
 
-    // If user doesn't exist, create new user with verification token
+    // Generate verification token for new user
     const verificationToken = jwt.sign({ email }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
 
-    // Create user with verification token
+    // Create new user with all fields
     const user = await User.create({
       email,
       password,
+      name,
+      surname,
+      personalIdCode,
       verificationToken,
     });
 
@@ -235,12 +166,46 @@ router.post("/verify-email", async (req, res) => {
     console.log("Resend API Response:", emailResponse);
 
     res.status(200).json({
-      message: "Verification email sent successfully",
+      success: true,
+      message: "User registered and verification email sent successfully",
       emailId: emailResponse.id,
+      user: {
+        email: user.email,
+        name: user.name,
+        surname: user.surname,
+        personalIdCode: user.personalIdCode,
+        isVerified: user.isVerified,
+      },
     });
   } catch (error) {
     console.error("Error:", error);
+
+    // Handle Sequelize validation errors
+    if (error.name === "SequelizeValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        errors: error.errors.map((err) => ({
+          field: err.path,
+          message: err.message,
+        })),
+      });
+    }
+
+    // Handle unique constraint errors
+    if (error.name === "SequelizeUniqueConstraintError") {
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        errors: error.errors.map((err) => ({
+          field: err.path,
+          message: err.message,
+        })),
+      });
+    }
+
     res.status(500).json({
+      success: false,
       message: "Error processing request",
       error: error.message,
     });
@@ -249,7 +214,7 @@ router.post("/verify-email", async (req, res) => {
 
 /**
  * @swagger
- * /verify:
+ * /verify-email:
  *   post:
  *     summary: Verify email with token
  *     tags: [Users]
@@ -273,8 +238,7 @@ router.post("/verify-email", async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.post("/verify", async (req, res) => {
-  console.log("Verify route hit");
+router.post("/verify-email", async (req, res) => {
   try {
     const { token } = req.body;
 
@@ -283,8 +247,6 @@ router.post("/verify", async (req, res) => {
         .status(400)
         .json({ message: "Verification token is required" });
     }
-
-    console.log("Token:", token);
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -428,6 +390,9 @@ router.post("/login", async (req, res) => {
       accessToken,
       refreshToken,
       user: {
+        name: user.name,
+        surname: user.surname,
+        personalIdCode: user.personalIdCode,
         email: user.email,
         isVerified: user.isVerified,
       },

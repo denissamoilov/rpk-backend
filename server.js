@@ -43,15 +43,8 @@ app.use("/api/register", authLimiter);
 const corsOptions = {
   origin:
     process.env.NODE_ENV === "production"
-      ? [
-          "https://frontend-uwih.onrender.com",
-          "https://rpk-backend.onrender.com",
-        ]
-      : [
-          "http://localhost:5005",
-          "http://localhost:3000",
-          "http://localhost:5173",
-        ],
+      ? ["https://frontend-uwih.onrender.com"] // Only allow your frontend domain
+      : ["http://localhost:5173"], // Local development
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization"],
   exposedHeaders: ["Content-Range", "X-Content-Range"],

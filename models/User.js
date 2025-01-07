@@ -7,6 +7,28 @@ class User extends Model {}
 
 User.init(
   {
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    surname: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    personalIdCode: {
+      type: DataTypes.STRING,
+      unique: true,
+      allowNull: false,
+      validate: {
+        isNumeric: {
+          msg: "Personal ID code must be a number",
+        },
+        len: {
+          args: [11, 11],
+          msg: "Personal ID code must be 11 digits long",
+        },
+      },
+    },
     email: {
       type: DataTypes.STRING,
       allowNull: false,
