@@ -2,6 +2,7 @@ const { Model, DataTypes } = require("sequelize");
 const bcrypt = require("bcryptjs");
 const sequelize = require("../config/database");
 const passwordValidator = require("../utils/passwordValidator");
+const Company = require("./Company");
 
 class User extends Model {}
 

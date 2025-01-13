@@ -61,7 +61,10 @@ app.use(express.urlencoded({ extended: true }));
 
 // API Routes
 const userRoutes = require("./routes/userRoutes");
+const companyRoutes = require("./routes/companyRoutes");
+
 app.use("/api", userRoutes);
+app.use("/api/company", companyRoutes);
 
 // Swagger documentation
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -75,9 +78,9 @@ app.use((err, req, res, next) => {
 // Start server and sync database
 const startServer = async () => {
   try {
-    // Sync database
-    await sequelize.sync();
-    console.log("Database synced successfully");
+    // Sync database with alter option to update relationships
+    await sequelize.sync({ alter: true });
+    console.log("Database synced and tables altered successfully");
 
     // Start server
     app.listen(PORT, () => {
