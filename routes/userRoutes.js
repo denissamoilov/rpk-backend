@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
+const Company = require("../models/Company")
 const RefreshToken = require("../models/RefreshToken");
 const jwt = require("jsonwebtoken");
 const { Resend } = require("resend");
@@ -380,6 +381,9 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    // Get user's companies
+    const companies = await Company.findAll({ where: { userId: user.id } });
+
     // Generate tokens
     const { accessToken, refreshToken } = await generateTokens(user);
 
@@ -395,6 +399,7 @@ router.post("/login", async (req, res) => {
         personalIdCode: user.personalIdCode,
         email: user.email,
         isVerified: user.isVerified,
+        companies: companies,
       },
     });
   } catch (error) {
