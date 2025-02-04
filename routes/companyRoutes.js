@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Company = require("../models/Company");
 const User = require("../models/User");
+const { authenticateToken } = require('../middleware/auth');
 
 /**
  * @swagger
@@ -32,7 +33,7 @@ const User = require("../models/User");
  *                 type: string
  */
 
-router.post("/company/create", async (req, res) => {
+router.post("/create", async (req, res) => {
   try {
     const { name, address, registrationNumber, email } = req.body;
 
@@ -74,19 +75,96 @@ router.post("/company/create", async (req, res) => {
 
 /**
  * @swagger
- * /user/company-list:
+ * /company/list:
  *   get:
  *     summary: Get all companies managed by the authenticated user
+ *     description: |
+ *       Retrieves all companies associated with the authenticated user.
+ *       Requires a valid JWT access token in the Authorization header.
  *     tags: [Company]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of companies retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 companies:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 1
+ *                       name:
+ *                         type: string
+ *                         example: "Company Name"
+ *                       email:
+ *                         type: string
+ *                         example: "company@example.com"
+ *                       address:
+ *                         type: string
+ *                         example: "123 Business St"
+ *                       userId:
+ *                         type: integer
+ *                         example: 1
+ *       401:
+ *         description: User not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "User not authenticated"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error retrieving companies"
  */
-router.get("/user/company-list", async (req, res) => {
+router.get("/list", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id; // Will be set by auth middleware
+    console.log("Headers:", req.headers);
+    console.log("Auth header:", req.headers.authorization);
+    console.log("User:", req.user);
+    
+    const userId = req.user?.id; // Make it optional to see if it's undefined
+    if (!userId) {
+      console.log("No user ID found in request");
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated"
+      });
+    }
+
+    console.log("User ID:", userId);
 
     const companies = await Company.findAll({
       where: { userId },
       order: [["createdAt", "DESC"]],
     });
+
+    console.log("Companies found:", companies.length);
 
     res.status(200).json({
       success: true,
@@ -115,7 +193,7 @@ router.get("/user/company-list", async (req, res) => {
  *         schema:
  *           type: integer
  */
-router.get("/company/:id", async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id; // Will be set by auth middleware
@@ -174,7 +252,7 @@ router.get("/company/:id", async (req, res) => {
  *               address:
  *                 type: string
  */
-router.put("/company/:id", async (req, res) => {
+router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id; // Will be set by auth middleware

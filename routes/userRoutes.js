@@ -22,7 +22,7 @@ const generateTokens = async (user) => {
   // Generate refresh token (7 days)
   const refreshToken = jwt.sign(
     { userId: user.id, email: user.email },
-    process.env.JWT_SECRET,
+    process.env.REFRESH_TOKEN_SECRET,
     { expiresIn: "7d" }
   );
 
@@ -354,7 +354,6 @@ router.post("/login", async (req, res) => {
 
     // Find user
     const user = await User.findOne({ where: { email } });
-    console.log("login user", user);
 
     // Check if user exists
     if (!user) {
@@ -387,12 +386,21 @@ router.post("/login", async (req, res) => {
     // Generate tokens
     const { accessToken, refreshToken } = await generateTokens(user);
 
+    res.cookie(
+      "refreshToken", refreshToken,
+      {
+        httpOnly: true,
+        secure: true,
+        path: "/",
+        sameSite: "Strict",
+      }
+    );
+
     // Send response
     res.status(200).json({
       success: true,
       message: "Login successful",
       accessToken,
-      refreshToken,
       user: {
         name: user.name,
         surname: user.surname,
@@ -629,10 +637,10 @@ router.post("/reset-password", async (req, res) => {
  */
 router.post("/refresh-token", async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies.refreshToken;
 
     if (!refreshToken) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
         message: "Refresh token is required",
       });
@@ -663,7 +671,7 @@ router.post("/refresh-token", async (req, res) => {
     }
 
     // Verify token
-    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
 
     // Find user
     const user = await User.findOne({ where: { id: decoded.userId } });
@@ -680,10 +688,19 @@ router.post("/refresh-token", async (req, res) => {
     // Revoke old refresh token
     await savedToken.update({ isRevoked: true });
 
+    // Set the new refresh token in cookie
+    res.cookie("refreshToken", tokens.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      path: "/",
+      sameSite: "Strict",
+    });
+
+    // Only send access token in response body
     res.status(200).json({
       success: true,
       message: "New tokens generated successfully",
-      ...tokens,
+      accessToken: tokens.accessToken,
     });
   } catch (error) {
     if (error.name === "TokenExpiredError") {

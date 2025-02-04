@@ -4,6 +4,7 @@ const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
+const cookieParser = require("cookie-parser");
 const sequelize = require("./config/database");
 require("dotenv").config();
 
@@ -13,6 +14,9 @@ const PORT = process.env.PORT || 5005;
 // Security Middleware
 // 1. Helmet - Security headers
 app.use(helmet());
+
+// Cookie parser
+app.use(cookieParser());
 
 // 2. Rate limiting - Protect against brute force/DDoS attacks
 const limiter = rateLimit({
@@ -79,7 +83,8 @@ app.use((err, req, res, next) => {
 const startServer = async () => {
   try {
     // Sync database with alter option to update relationships
-    await sequelize.sync({ alter: true });
+    // await sequelize.sync({ alter: true });
+    await sequelize.sync();
     console.log("Database synced and tables altered successfully");
 
     // Start server
