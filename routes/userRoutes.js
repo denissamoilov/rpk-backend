@@ -380,9 +380,6 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // Get user's companies
-    const companies = await Company.findAll({ where: { userId: user.id } });
-
     // Generate tokens
     const { accessToken, refreshToken } = await generateTokens(user);
 
@@ -407,7 +404,6 @@ router.post("/login", async (req, res) => {
         personalIdCode: user.personalIdCode,
         email: user.email,
         isVerified: user.isVerified,
-        companies: companies,
       },
     });
   } catch (error) {
