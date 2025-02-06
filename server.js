@@ -64,11 +64,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // API Routes
-const userRoutes = require("./routes/userRoutes");
+const authRoutes = require("./routes/authRoutes");
 const companyRoutes = require("./routes/companyRoutes");
+const userRoutes = require("./routes/userRoutes");
 
-app.use("/api", userRoutes);
+app.use("/api", authRoutes);
 app.use("/api/company", companyRoutes);
+app.use("/api/user", userRoutes);
 
 // Swagger documentation
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));

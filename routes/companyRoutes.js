@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const Company = require("../models/Company");
-const User = require("../models/User");
 const { authenticateToken } = require('../middleware/auth');
 
 /**
@@ -144,27 +143,18 @@ router.post("/create", async (req, res) => {
  */
 router.get("/list", authenticateToken, async (req, res) => {
   try {
-    console.log("Headers:", req.headers);
-    console.log("Auth header:", req.headers.authorization);
-    console.log("User:", req.user);
-    
     const userId = req.user?.id; // Make it optional to see if it's undefined
     if (!userId) {
-      console.log("No user ID found in request");
       return res.status(401).json({
         success: false,
         message: "User not authenticated"
       });
     }
 
-    console.log("User ID:", userId);
-
     const companies = await Company.findAll({
       where: { userId },
       order: [["createdAt", "DESC"]],
     });
-
-    console.log("Companies found:", companies.length);
 
     res.status(200).json({
       success: true,
@@ -193,7 +183,7 @@ router.get("/list", authenticateToken, async (req, res) => {
  *         schema:
  *           type: integer
  */
-router.get("/:id", async (req, res) => {
+router.get("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id; // Will be set by auth middleware
